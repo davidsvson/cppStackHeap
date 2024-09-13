@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>C++ Memory Management Visualizer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            display: flex;
+            flex-direction: row;
+            gap: 20px;
+        }
+        .code-container, .memory-container {
+            flex: 1;
+        }
+        .code-container {
+            border: 1px solid #ccc;
+            padding: 10px;
+            height: 400px;
+            overflow: auto;
+            position: relative;
+            background-color: #f9f9f9;
+        }
+        .code-line {
+            padding: 2px 5px;
+        }
+        .current-line {
+            background-color: #d1e7dd;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            border: 1px solid #aaa;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #eee;
+        }
+        .memory-title {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .instructions {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>C++ Memory Management Visualizer</h1>
+    <div class="instructions">
+        <p>Use the <strong>Up</strong> and <strong>Down</strong> arrow keys to navigate through the C++ program execution. Observe how the stack and heap change with each step.</p>
+    </div>
+    <div class="container">
+        <div class="code-container" id="codeContainer">
+            <!-- C++ Code will be injected here -->
+        </div>
+        <div class="memory-container">
+            <div>
+                <div class="memory-title">Stack</div>
+                <table id="stackTable">
+                    <thead>
+                        <tr>
+                            <th>Address</th>
+                            <th>Variable</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Stack entries will be injected here -->
+                    </tbody>
+                </table>
+            </div>
+            <div>
+                <div class="memory-title">Heap</div>
+                <table id="heapTable">
+                    <thead>
+                        <tr>
+                            <th>Address</th>
+                            <th>Pointer</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Heap entries will be injected here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sample C++ program
+        const cppCode = [
+            '#include <iostream>',
+            '',
+            'int main() {',
+            '    int a = 10;',
+            '    int b = 20;',
+            '    int* p = new int;',
+            '    *p = a + b;',
+            '    std::cout << *p << std::endl;',
+            '    delete p;',
+            '    return 0;',
+            '}'
+        ];
+
+        // Initialize step-by-step memory states
+        const steps = [
+            // Step 0: Before main starts
+            {
+                stack: [],
+                heap: []
+            },
+            // Step 1: Enter main
+            {
+                stack: [{address: '0x7ffee3bff5dc', variable: 'a', value: '10'}],
+                heap: []
+            },
+            // Step 2: Declare b
+            {
+                stack: [
+                    {address: '0x7ffee3bff5dc', variable: 'a', value: '10'},
+                    {address: '0x7ffee3bff5d8', variable: 'b', value: '20'}
+                ],
+                heap: []
+            },
+            // Step 3: Allocate p on stack
+            {
+                stack: [
+                    {address: '0x7ffee3bff5dc', variable: 'a', value: '10'},
+                    {address: '0x7ffee3bff5d8', variable: 'b', value: '20'},
+                    {address: '0x7ffee3bff5d4', variable: 'p', value: '0x601050'}
+                ],
+                heap: []
+            },
+            // Step 4: Allocate memory on heap
+            {
+                stack: [
+                    {address: '0x7ffee3bff5dc', variable: 'a', value: '10'},
+                    {address: '0x7ffee3bff5d8', variable: 'b', value: '20'},
+                    {address: '0x7ffee3bff5d4', variable: 'p', value: '0x601050'}
+                ],
+                heap: [
+                    {address: '0x601050', pointer: 'p', value: 'uninitialized'}
+                ]
+            },
+            // Step 5: Assign *p = a + b
+            {
+                stack: [
+                    {address: '0x7ffee3bff5dc', variable: 'a', value: '10'},
+                    {address: '0x7ffee3bff5d8', variable: 'b', value: '20'},
+                    {address: '0x7ffee3bff5d4', variable: 'p', value: '0x601050'}
+                ],
+                heap: [
+                    {address: '0x601050', pointer: 'p', value: '30'}
+                ]
+            },
+            // Step 6: Print *p
+            {
+                stack: [
+                    {address: '0x7ffee3bff5dc', variable: 'a', value: '10'},
+                    {address: '0x7ffee3bff5d8', variable: 'b', value: '20'},
+                    {address: '0x7ffee3bff5d4', variable: 'p', value: '0x601050'}
+                ],
+                heap: [
+                    {address: '0x601050', pointer: 'p', value: '30'}
+                ]
+            },
+            // Step 7: Delete p
+            {
+                stack: [
+                    {address: '0x7ffee3bff5dc', variable: 'a', value: '10'},
+                    {address: '0x7ffee3bff5d8', variable: 'b', value: '20'},
+                    {address: '0x7ffee3bff5d4', variable: 'p', value: '0x601050'}
+                ],
+                heap: [] // Memory at 0x601050 is freed
+            },
+            // Step 8: Exit main
+            {
+                stack: [],
+                heap: []
+            }
+        ];
+
+        let currentStep = 0;
+
+        // Initialize the code display
+        function displayCode() {
+            const codeContainer = document.getElementById('codeContainer');
+            codeContainer.innerHTML = '';
+            cppCode.forEach((line, index) => {
+                const lineElement = document.createElement('div');
+                lineElement.classList.add('code-line');
+                lineElement.textContent = line;
+                lineElement.id = 'line-' + index;
+                codeContainer.appendChild(lineElement);
+            });
+            highlightCurrentLine();
+        }
+
+        // Highlight the current line
+        function highlightCurrentLine() {
+            cppCode.forEach((_, index) => {
+                const lineElement = document.getElementById('line-' + index);
+                if (index === currentStep + 2) { // Adjusting for function lines
+                    lineElement.classList.add('current-line');
+                    // Scroll into view
+                    lineElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    lineElement.classList.remove('current-line');
+                }
+            });
+        }
+
+        // Update memory tables
+        function updateMemory() {
+            const stackTable = document.getElementById('stackTable').getElementsByTagName('tbody')[0];
+            const heapTable = document.getElementById('heapTable').getElementsByTagName('tbody')[0];
+
+            // Clear existing tables
+            stackTable.innerHTML = '';
+            heapTable.innerHTML = '';
+
+            // Populate stack
+            steps[currentStep].stack.forEach(entry => {
+                const row = stackTable.insertRow();
+                const addrCell = row.insertCell(0);
+                const varCell = row.insertCell(1);
+                const valCell = row.insertCell(2);
+
+                addrCell.textContent = entry.address;
+                varCell.textContent = entry.variable;
+                valCell.textContent = entry.value;
+            });
+
+            // Populate heap
+            steps[currentStep].heap.forEach(entry => {
+                const row = heapTable.insertRow();
+                const addrCell = row.insertCell(0);
+                const ptrCell = row.insertCell(1);
+                const valCell = row.insertCell(2);
+
+                addrCell.textContent = entry.address;
+                ptrCell.textContent = entry.pointer;
+                valCell.textContent = entry.value;
+            });
+        }
+
+        // Handle key presses
+        function handleKeyPress(event) {
+            if (event.key === 'ArrowDown') {
+                if (currentStep < steps.length - 1) {
+                    currentStep++;
+                    updateStep();
+                }
+                event.preventDefault();
+            } else if (event.key === 'ArrowUp') {
+                if (currentStep > 0) {
+                    currentStep--;
+                    updateStep();
+                }
+                event.preventDefault();
+            }
+        }
+
+        // Update the display based on the current step
+        function updateStep() {
+            highlightCurrentLine();
+            updateMemory();
+        }
+
+        // Initialize the application
+        function init() {
+            displayCode();
+            updateMemory();
+            document.addEventListener('keydown', handleKeyPress);
+        }
+
+        // Run the initializer on page load
+        window.onload = init;
+    </script>
+
+</body>
+</html>
